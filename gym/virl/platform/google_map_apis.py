@@ -415,7 +415,11 @@ class GoogleMapAPI(object):
             pano_id = self.gps_to_pano_mapping[geocode]
         else:
             geocode, pano_id = self.relocate_geocode_by_source(geocode, source=source)
-        
+
+        if geocode is None or pano_id is None:
+            warnings.warn(f'Cannot find panorama for geocode, skipping.')
+            return False, None
+
         # Step 2: load the panorama image
         pano_img_path = os.path.join(self.panorama_dir, f'{pano_id}.jpg')
         pano_image_metadata_path = os.path.join(self.panorama_dir, f'{pano_id}.metadata.json')
@@ -441,10 +445,9 @@ class GoogleMapAPI(object):
                 return new_geocode, pano_id
             else:
                 warnings.warn(f'Cannot find the nearest geocode within {self.offline_cfg.MAPPING_RADIUS} '
-                              f'for {geocode}. Call online api.')
-                if direct_return:
-                    return None, None
-        
+                              f'for {geocode}. Returning None (offline-only mode).')
+                return None, None
+
         base_url = self.base_urls['streetview_meta']
 
         params = {
@@ -452,32 +455,17 @@ class GoogleMapAPI(object):
             'source': source,
             'key': self.key
         }
-        
+
         response_json = requests.get(base_url, params=params).json()
         if response_json['status'] == 'OK':
             new_geocode = (response_json['location']['lat'], response_json['location']['lng'])
             pano_id = response_json['pano_id']
-            # if self.offline_cfg.ENABLE_SAVE_PANO and self.offline_cfg.ENABLED:
-            #     save_path = './output/online_pano_id_nyc.txt'
-            #     # first check whether the pano id is saved in the .txt
-            #     with open(save_path, 'r') as f:
-            #         pano_id_list = f.readlines()
-            #         pano_id_list = [x.strip() for x in pano_id_list]
-
-            #     # if not saved, save it'
-            #     if pano_id not in pano_id_list:
-            #         with open(save_path, 'a') as f:
-            #             print(f'Save the pano id to be downloaded: {pano_id}')
-            #             f.write(pano_id + '\n')
-            # with open('data/remaining_nyc_pano_ids_v3.txt', 'a') as f:
-            #     f.write(f'{pano_id}\n')
-            # warnings.warn(f'Relocated geocode: {geocode} -> {new_geocode} via online api, pano_id: {pano_id}')
-            # assert False
             return new_geocode, pano_id
         elif response_json['status'] in ['ZERO_RESULTS', 'UNKNOWN_ERROR']:
             return None, None
         else:
             print(f'Relocated geocode error: {response_json}')
+            return None, None
 
     def _relocate_geocode_by_source_offline(self, geocode: tuple):
         # for the case that geocode is in the mapping file, directly get the pano id
