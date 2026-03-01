@@ -339,8 +339,9 @@ class GoogleMapAPI(object):
             if is_success:
                 return street_image
             else:
-                warnings.warn(f'Cannot find the streetview image for {geocode} in offline database. Call online api.')
-                # warnings.warn(f'Cannot find the streetview image for {geocode} in offline database. return None')
+                warnings.warn(f'Cannot find the streetview image for {geocode} in offline database. Returning blank image.')
+                blank_image = Image.new('RGB', tuple(size), (0, 0, 0))
+                return StreetViewImage(blank_image, heading, pitch, fov, geocode, i=idx)
         
         
         base_url = self.base_urls['streetview_meta']
